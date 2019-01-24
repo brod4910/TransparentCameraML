@@ -108,11 +108,11 @@ def train(args, model, device, checkpoint):
 
     print("\nUsing optimizer: %s" % (args.optimizer))
 
-    # set the Loss function as CrossEntropy
+    # set the Loss function as CrossEntropy or MultiLabelMarginLoss
     if args.loss_fn == 'CELoss':
         criterion = torch.nn.CrossEntropyLoss().cuda() if device == "cuda" else torch.nn.CrossEntropyLoss()
     elif args.loss_fn == 'MMLoss':
-        criterion = torch.nn.MultiMarginLoss().cuda() if device == "cuda" else torch.nn.MultiMarginLoss()
+        criterion = torch.nn.MultiLabelMarginLoss().cuda() if device == "cuda" else torch.nn.MultiMarginLoss()
 
     # either take the minimum loss then reduce LR or take max of accuracy then reduce LR
     if args.plateau == 'loss':
@@ -285,7 +285,7 @@ def test_epoch(model, test_loader, device):
 
             output = model(input)
             # sum up batch loss
-            test_loss += F.cross_entropy(output, target, size_average=False).item()
+            test_loss += F.multilabel_margin_loss(output, target, reduction='mean').item()
             # get the index of the max log-probability
             pred = output.max(1, keepdim=True)[1]
             correct += pred.eq(target.view_as(pred)).sum().item()

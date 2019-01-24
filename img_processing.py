@@ -38,3 +38,6 @@ def convert_png_to_jpg(direct, new_direct):
 
 def main():
     convert_png_to_jpg('/scratch/kingspeak/serial/u0853593/val2017', '/scratch/kingspeak/serial/u0853593/val2017_jpg')
+
+if __name__ == '__main__':
+    main()
