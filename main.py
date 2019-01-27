@@ -38,8 +38,14 @@ def CreateArgsParser():
                     help= 'Type of optimizer to use. Options: SGD, AdaG, AdaD, Adam, RMS')
     parser.add_argument('--root-dir', required= True,  
                     help='root directory where enclosing image files are located')
-    parser.add_argument('--train-csv', required= True, 
-                    help='path to the location of the training csv')
+    parser.add_argument('--train-annFile', required= True, 
+                    help='path to the location of the train annotation file')
+    parser.add_argument('--val-annFile', required= True, 
+                    help='path to the location of the validation annotation file')
+    parser.add_argument('--train-dir', required= True, 
+                    help='path to the location where train images are saved')
+    parser.add_argument('--val-dir', required= True, 
+                    help='path to the location where val images are saved')
     parser.add_argument('--test-csv', required= True, 
                     help='path to the location of the test csv')
     parser.add_argument('--resume', default= None, 

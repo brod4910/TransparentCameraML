@@ -118,7 +118,7 @@ def train(args, model, device, checkpoint):
         }, is_best)
 
         is_best = False
-        
+
 '''
     Evaluates the model depnding on if Bias, Shift or Gaussian are not None.
     The function evaluates the model using 4 different transforms, where shift can be either periodic shift, 
