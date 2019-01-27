@@ -45,22 +45,12 @@ def CreateArgsParser():
     parser.add_argument('--resume', default= None, 
                     help='file to load checkpoint from')
     parser.add_argument('--start-epoch', type=int, default=1)
-    parser.add_argument('--rigor', action='store_true',
-                    help='Rigorous training')
-    parser.add_argument('--loss-fn', default='CELoss',
+    parser.add_argument('--loss-fn', default='BCELoss',
                     help='Loss funciton to be used: CELoss, MMLoss')
     parser.add_argument('--f-layers', required= True, default=None,
                     help='Feature layers to be used during training. List of feature layers are in models.py.')
     parser.add_argument('--c-layers', required= True, default=None,
                     help='Classifying layers to be used during training. List of classifier layers are in models.py.')
-    parser.add_argument('--gaussian', default= None, type= int,
-                    help='Adds gaussian noise with std given by user')
-    parser.add_argument('--shift', default= None, type= int, 
-                    help='Shifts the image by the int given by user')
-    parser.add_argument('--bias', default= None, type= int,
-                    help='Adds bias noise to the image by the int given by user')
-    parser.add_argument('-ts', '--type-shift', nargs='+', default= None,
-                    help= 'Selects either translate or periodic shifting. t for translate, p for periodic or both')
 
     return parser
 

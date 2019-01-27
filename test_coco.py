@@ -4,9 +4,10 @@ import torchvision.datasets as datasets
 from Models.normalize import CastTensor
 from torchvision import transforms
 from gluoncv import data, utils
+from Models.CocoDataset import CocoDataset
 
 def main():
-    dataDir ='/Volumes/MyPassport/coco/'
+    dataDir ='/Volumes/MyPassport/coco'
     dataType ='val2017'
     annFile ='{}/annotations/instances_{}.json'.format(dataDir, dataType)
 
@@ -20,48 +21,32 @@ def main():
     # nms = set([cat['supercategory'] for cat in cats])
     # print('COCO supercategories: \n{}'.format(' '.join(nms)))
 
-
-    d = transforms.Compose([transforms.Resize((50,50)),
-    CastTensor()])
-
-    # train_dataset = data.COCODetection(root='/Volumes/MyPassport/coco', splits=['instances_train2017'])
-    val_dataset = data.COCODetection(root='/Volumes/MyPassport/coco', splits=['instances_val2017'])
+    val_dataset = CocoDataset('/Volumes/MyPassport/coco/val2017', annFile, transform=transforms.ToTensor())
     
-    # print('Num of training images:', len(train_dataset))
-    print('Num of validation images:', len(val_dataset))
+    val_dataloader = torch.utils.data.DataLoader(
+    val_dataset, 
+    batch_size= 1, 
+    shuffle= True, 
+    num_workers= 2,
+    pin_memory= True
+    )
 
-    val_image, val_label = val_dataset[0]
+    for i, (input, raw_labels) in enumerate(val_dataloader):
+        if i == 3:
+            break
+        # print(raw_labels)
+        labels = [raw.item() for raw in raw_labels]
+        labels = torch.as_tensor(labels)
 
-    print(val_label)
-
-
-    # coco = datasets.CocoDetection(root= '/Volumes/MyPassport/coco/val2017/val2017', annFile= annFile, transform= d)
-
-    # train_loader = torch.utils.data.DataLoader(
-    # coco,
-    # batch_size= 1, 
-    # shuffle= True, 
-    # num_workers= 2,
-    # pin_memory= True
-    # )
-
-    # for batch_idx, (inputs, targets) in enumerate(train_loader):
-    #     # for pixel in iter(inputs.getdata()):
-    #     #     print(pixel)
-    #     # print(targets)
-    #     if not targets:
-    #         print('None hit')
-    #         print(inputs)
-    #         print(batch_idx)
-    #         continue
-    #     cat_ids = targets[0]['category_id']
-    #     targs = coco.coco.loadCats(ids= [cat.item() for cat in cat_ids])
-    #     # print([targ['supercategory'] for targ in targs])
-    #     # break
+        # print("Batch index: {}".format(i))
+        # labels = [label for label in raw_labels]
+        # print(labels, len(labels))
+        # cat_ids = [label['category_id'] for label in labels if 'category_id' in label]
+        # print(cat_ids)
+        # cats = val_dataset_torch.coco.loadCats(ids=cat_ids)
+        # print(cats)
+        # sup_cats = cats[:]['supercategory']
+        # print(sup_cats)
 
 if __name__ == '__main__':
     main()
-
-
-
-

@@ -10,6 +10,7 @@ import shutil
 from normalize import CastTensor, BiasNoise, TranslateImage, GaussianNoise, MaxNormalization, PeriodicShift
 import torchvision.datasets as datasets
 import numpy as np
+from CocoDataset import CocoDataset
 
 '''
     The main train function that combines model setup, training, testing, and extra rigor evaluation
@@ -22,60 +23,18 @@ import numpy as np
 '''
 def train(args, model, device, checkpoint):
 
-    # Data transforms list 
-    data_transforms = []
-
-    # Conduct rigorous tests if the args contain rigor
-    # The tests can test periodic, translation or both
-    if args.rigor:
-        if 't' in args.type_shift and 'p' in args.type_shift:
-            shift_t = [TranslateImage(args.shift, 0, random= args.rigor),
-                    PeriodicShift(args.shift, random= args.rigor)]
-        elif 't' in args.type_shift:
-            shift_t = [TranslateImage(args.shift, 0, random= args.rigor)]
-        elif 'p' in args.type_shift:
-            shift_t = [PeriodicShift(args.shift, random= args.rigor)]
-
-        data_transforms.append(([transforms.Resize((args.resize, args.resize)),
-                        MaxNormalization(0.0038910505836575876),
-                        None,
-                        CastTensor(),
-                        transforms.Normalize([157.11056947927852], [139.749640327443])], 
-                        [GaussianNoise(args.gaussian),
-                        *shift_t]))
-
     # The transform to be appended for normal testing
-    data_transforms.append((
-        [transforms.Resize((args.resize, args.resize)),
-        CastTensor(),
-        transforms.Normalize([157.11056947927852], [139.749640327443])],
-        None))
+    data_transform = transforms.Compose([transforms.Resize((args.resize, args.resize)),
+        CastTensor()])
 
     print("\nImages resized to %d x %d" % (args.resize, args.resize))
 
-    print(data_transforms)
-
-    train_datasets = []
-    test_datasets = []
-
-    # for each transform create its respective dataset and append to
-    # its respect list
-    for idx, (b, e) in enumerate(data_transforms):
-        train_datasets.append(LenslessDataset.LenslessDataset(
-        csv_file= args.train_csv,
-        root_dir= args.root_dir,
-        bare_transform = b,
-        extra_transform = e))
-        
-        test_datasets.append(LenslessDataset.LenslessDataset(
-        csv_file= args.test_csv,
-        root_dir= args.root_dir,
-        bare_transform = b,
-        extra_transform = e))
+    train_dataset = CocoDataset(args.train_dir, args.train_annFile, transform=data_transform)
+    val_dataset = CocoDataset(args.val_dir, args.val_annFile, transform=data_transform)
 
     # Concatenate each dataset to create a joined dataset
     train_loader = torch.utils.data.DataLoader(
-    ConcatDataset(train_datasets), 
+    train_dataset, 
     batch_size= args.batch_size, 
     shuffle= True, 
     num_workers= args.num_processes,
@@ -83,7 +42,7 @@ def train(args, model, device, checkpoint):
     )
 
     test_loader = (torch.utils.data.DataLoader(
-    ConcatDataset(test_datasets),
+    val_dataset,
     batch_size= args.batch_size, 
     shuffle= True, 
     num_workers= args.num_processes,
@@ -113,6 +72,8 @@ def train(args, model, device, checkpoint):
         criterion = torch.nn.CrossEntropyLoss().cuda() if device == "cuda" else torch.nn.CrossEntropyLoss()
     elif args.loss_fn == 'MMLoss':
         criterion = torch.nn.MultiLabelMarginLoss().cuda() if device == "cuda" else torch.nn.MultiMarginLoss()
+    elif args.loss_fn == 'BCELoss'
+        criterion = torch.nn.BCEWithLogitsLoss().cuda() if device == "cuda" else torch.nn.BCEWithLogitsLoss()
 
     # either take the minimum loss then reduce LR or take max of accuracy then reduce LR
     if args.plateau == 'loss':
@@ -157,12 +118,7 @@ def train(args, model, device, checkpoint):
         }, is_best)
 
         is_best = False
-
-        # evalute the model with transforms of a certain type or rigor evaluation
-        # depending on if args contains certain transforms
-        print("Evaluating model at epoch: {}".format(epoch))
-        evaluate_model(model, device, args, Bias=args.bias, Shift= (args.shift, 0), Gaussian=args.gaussian)
-
+        
 '''
     Evaluates the model depnding on if Bias, Shift or Gaussian are not None.
     The function evaluates the model using 4 different transforms, where shift can be either periodic shift, 
@@ -214,7 +170,7 @@ def evaluate_model(model, device, args, Bias= None, Shift= None, Gaussian= None)
         test_dataset,
         batch_size= args.batch_size,
         shuffle= True,
-        num_workers= 2,
+        num_workers= 4,
         pin_memory= True
         )
 
@@ -241,6 +197,8 @@ def train_epoch(epoch, args, model, optimizer, criterion, train_loader, device):
     optimizer.zero_grad()                                   # Reset gradients tensors
 
     for batch_idx, (inputs, targets) in enumerate(train_loader):
+
+
 
         inputs, targets = inputs.to(device), targets.to(device)
 
@@ -285,7 +243,7 @@ def test_epoch(model, test_loader, device):
 
             output = model(input)
             # sum up batch loss
-            test_loss += F.multilabel_margin_loss(output, target, reduction='mean').item()
+            test_loss += F.binary_cross_entropy_with_logits(output, target, reduction='mean').item()
             # get the index of the max log-probability
             pred = output.max(1, keepdim=True)[1]
             correct += pred.eq(target.view_as(pred)).sum().item()

@@ -37,7 +37,7 @@ def convert_png_to_jpg(direct, new_direct):
             rgb_im.save('{}.jpg'.format(os.path.join(new_direct, filename[:-4])))
 
 def main():
-    convert_png_to_jpg('/scratch/kingspeak/serial/u0853593/val2017', '/scratch/kingspeak/serial/u0853593/val2017_jpg')
+    convert_png_to_jpg('/scratch/kingspeak/serial/u0853593/train2017', '/scratch/kingspeak/serial/u0853593/train2017_jpg')
 
 if __name__ == '__main__':
     main()
