@@ -7,10 +7,10 @@ from torchvision import transforms
 import torch.backends.cudnn as cudnn
 import time
 import shutil
-from normalize import CastTensor, BiasNoise, TranslateImage, GaussianNoise, MaxNormalization, PeriodicShift
 import torchvision.datasets as datasets
 import numpy as np
-from CocoDataset import CocoDataset
+from . import CocoDataset
+from . import normalize
 
 '''
     The main train function that combines model setup, training, testing, and extra rigor evaluation
@@ -25,12 +25,12 @@ def train(args, model, device, checkpoint):
 
     # The transform to be appended for normal testing
     data_transform = transforms.Compose([transforms.Resize((args.resize, args.resize)),
-        CastTensor()])
+        transforms.ToTensor()])
 
     print("\nImages resized to %d x %d" % (args.resize, args.resize))
 
-    train_dataset = CocoDataset(args.train_dir, args.train_annFile, transform=data_transform)
-    val_dataset = CocoDataset(args.val_dir, args.val_annFile, transform=data_transform)
+    train_dataset = CocoDataset.CocoDataset(args.train_dir, args.train_annFile, transform=data_transform)
+    val_dataset = CocoDataset.CocoDataset(args.val_dir, args.val_annFile, transform=data_transform)
 
     # Concatenate each dataset to create a joined dataset
     train_loader = torch.utils.data.DataLoader(
@@ -41,13 +41,13 @@ def train(args, model, device, checkpoint):
     pin_memory= True
     )
 
-    test_loader = (torch.utils.data.DataLoader(
+    val_loader = torch.utils.data.DataLoader(
     val_dataset,
     batch_size= args.batch_size, 
     shuffle= True, 
     num_workers= args.num_processes,
     pin_memory= True
-    ))
+    )
 
     # set the optimizer depending on choice
     if args.optimizer == 'SGD':
@@ -72,7 +72,7 @@ def train(args, model, device, checkpoint):
         criterion = torch.nn.CrossEntropyLoss().cuda() if device == "cuda" else torch.nn.CrossEntropyLoss()
     elif args.loss_fn == 'MMLoss':
         criterion = torch.nn.MultiLabelMarginLoss().cuda() if device == "cuda" else torch.nn.MultiMarginLoss()
-    elif args.loss_fn == 'BCELoss'
+    elif args.loss_fn == 'BCELoss':
         criterion = torch.nn.BCEWithLogitsLoss().cuda() if device == "cuda" else torch.nn.BCEWithLogitsLoss()
 
     # either take the minimum loss then reduce LR or take max of accuracy then reduce LR
@@ -93,7 +93,7 @@ def train(args, model, device, checkpoint):
     # train and validate the model accordingly
     for epoch in range(args.start_epoch, args.epochs + 1):
         train_epoch(epoch, args, model, optimizer, criterion, train_loader, device)
-        test_loss, accuracy = test_epoch(model, test_loader, device)
+        test_loss, accuracy = test_epoch(model, val_loader, device, criterion)
 
         if args.plateau == 'loss':
             scheduler.step(test_loss)
@@ -120,63 +120,6 @@ def train(args, model, device, checkpoint):
         is_best = False
 
 '''
-    Evaluates the model depnding on if Bias, Shift or Gaussian are not None.
-    The function evaluates the model using 4 different transforms, where shift can be either periodic shift, 
-    translation or both. Each transform happens independently of each other, meaning that the model is 
-    evaluated separately for each transform.
-
-    params:
-        model: Model to be evaluated
-        device: device to send the data to while evaluating (e.g cpu, cuda, cuda:0, cuda:1, etc)
-        args: Arguments which contain the required information for evaluation
-        Bias: Contains bias to add constant noise to each image
-        Shift: Shift constant to shift images by. (UNUSED: the value itself is 
-                unused but needs to be present for shifting to occur)
-        Gaussian: Std to be used during evaluation
-'''
-def evaluate_model(model, device, args, Bias= None, Shift= None, Gaussian= None):
-    data_transforms = []
-
-    if Bias is not None:
-        data_transforms.append([BiasNoise(Bias)])
-    if Shift is not None:
-        if 't' in args.type_shift and 'p' in args.type_shift:
-            shift_t = [TranslateImage(args.shift, 0, random= args.rigor),
-                    PeriodicShift(args.shift, random= args.rigor)]
-        elif 't' in args.type_shift:
-            shift_t = [TranslateImage(args.shift, 0, random= args.rigor)]
-        elif 'p' in args.type_shift:
-            shift_t = [PeriodicShift(args.shift, random= args.rigor)]
-
-        data_transforms.append(shift_t)
-    if Gaussian is not None:
-        data_transforms.append([GaussianNoise(Gaussian)])
-
-    for d_transform in data_transforms:
-        data_transform = [transforms.Resize((args.resize, args.resize)),
-            MaxNormalization(0.0038910505836575876),
-            *d_transform,
-            CastTensor(),
-            transforms.Normalize([157.11056947927852], [139.749640327443])
-            ]
-
-        test_dataset = LenslessDataset.LenslessDataset(
-        csv_file= args.test_csv,
-        root_dir= args.root_dir,
-        bare_transform= data_transform
-        )
-
-        test_loader = torch.utils.data.DataLoader(
-        test_dataset,
-        batch_size= args.batch_size,
-        shuffle= True,
-        num_workers= 4,
-        pin_memory= True
-        )
-
-        test_epoch(model, test_loader, device)
-
-'''
     Trains the given model for a single epoch of the training data.
 
     params:
@@ -196,15 +139,13 @@ def train_epoch(epoch, args, model, optimizer, criterion, train_loader, device):
 
     optimizer.zero_grad()                                   # Reset gradients tensors
 
-    for batch_idx, (inputs, targets) in enumerate(train_loader):
-
-
-
-        inputs, targets = inputs.to(device), targets.to(device)
+    for batch_idx, (inputs, labels) in enumerate(train_loader):
+        inputs = inputs.to(device)
+        labels = torch.stack(labels, 1).type(torch.FloatTensor).to(device)
 
         output = model(inputs)                     # Forward pass
 
-        loss = criterion(output, targets)      # Compute loss function
+        loss = criterion(output, labels)      # Compute loss function
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -216,7 +157,7 @@ def train_epoch(epoch, args, model, optimizer, criterion, train_loader, device):
                 epoch, batch_idx * len(inputs), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader.dataset), loss.item()))
 
-        del inputs, targets, loss, output
+        del inputs, labels, loss, output
 
     total_train_loss /= len(train_loader.dataset)
     print('\nAveraged loss for training epoch: {:.4f}'.format(total_train_loss))
@@ -229,7 +170,7 @@ def train_epoch(epoch, args, model, optimizer, criterion, train_loader, device):
         test_loader: The testing loader for the dataset being tested against
         device: Device to send the data to while testing (e.g cpu, cuda, cuda:0, cuda:1, etc)
 '''
-def test_epoch(model, test_loader, device):
+def test_epoch(model, val_loader, device, criterion):
     model.eval()
     test_loss = 0
     accuracy = 0
@@ -237,24 +178,43 @@ def test_epoch(model, test_loader, device):
 
     # validate the model over the test set and record no gradient history
     with torch.no_grad():
-        for batch_idx, (input, target) in enumerate(test_loader):
+        for batch_idx, (inputs, labels) in enumerate(val_loader):
+            inputs = inputs.to(device)
+            labels = torch.stack(labels, 1).type(torch.FloatTensor).to(device)
 
-            input, target = input.to(device), target.to(device)
+            label_idxs = [[i for i, l in enumerate(label) if l == 1] for label in labels]
 
-            output = model(input)
+            corr_size = []
+
+            for idxs in label_idxs:
+                size = len(idxs)//2
+                if size != 0:
+                    corr_size.append(size)
+                elif idxs and size == 0:
+                    corr_size.append(1)
+                else:
+                    corr_size.append(0)
+
+            output = model(inputs)
             # sum up batch loss
-            test_loss += F.binary_cross_entropy_with_logits(output, target, reduction='mean').item()
-            # get the index of the max log-probability
-            pred = output.max(1, keepdim=True)[1]
-            correct += pred.eq(target.view_as(pred)).sum().item()
-            
-            del input, target, output
+            preds = F.binary_cross_entropy_with_logits(output, labels, reduction='none')
 
-    test_loss /= len(test_loader.dataset)
-    accuracy = 100. * correct / len(test_loader.dataset)
+            for i, (pred, idxs, size) in enumerate(zip(preds, label_idxs, corr_size)):
+                torch_idxs = torch.tensor(idxs).type(torch.LongTensor)
+                out = torch.index_select(pred, 0, torch_idxs)
+                out = out.ge(.7).sum()
+                if out.item() >= size:
+                    correct += out.item()
+                
+            # get the index of the max log-probability
+
+            del inputs, labels, output
+
+    test_loss /= len(val_loader.dataset)
+    accuracy = 100. * correct / len(val_loader.dataset)
     print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.1f}%)\n'
-          .format(test_loss, correct, len(test_loader.dataset),
-                  100. * correct / len(test_loader.dataset)))
+          .format(test_loss, correct, len(val_loader.dataset),
+                  100. * correct / len(val_loader.dataset)))
 
     return test_loss, accuracy
 
