@@ -201,7 +201,7 @@ def test_epoch(model, val_loader, device, criterion):
 
             # get correctness of predictions
             for i, (pred, idxs, size) in enumerate(zip(preds, label_idxs, corr_size)):
-                torch_idxs = torch.tensor(idxs).type(torch.LongTensor)
+                torch_idxs = torch.tensor(idxs).to(device)
                 out = torch.index_select(pred, 0, torch_idxs)
                 out = out.ge(.7).sum()
 
@@ -216,6 +216,8 @@ def test_epoch(model, val_loader, device, criterion):
                 # 
                 if out.item() >= size and incorrect_sum.item() >= incorr_size[0] // 2:
                     correct += out.item()
+
+                del torch_idxs
                 
             # get the index of the max log-probability
 
