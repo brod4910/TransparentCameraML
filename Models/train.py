@@ -199,11 +199,17 @@ def test_epoch(model, val_loader, device, criterion):
             # sum up batch loss
             preds = F.binary_cross_entropy_with_logits(output, labels, reduction='none')
 
+            # 
             for i, (pred, idxs, size) in enumerate(zip(preds, label_idxs, corr_size)):
                 torch_idxs = torch.tensor(idxs).type(torch.LongTensor)
                 out = torch.index_select(pred, 0, torch_idxs)
                 out = out.ge(.7).sum()
-                if out.item() >= size:
+
+                incorrect = select_items_except(idxs, pred)
+                incorr_size = incorrect.size()
+                incorrect = incorrect.le(.5).sum()
+
+                if out.item() >= size and incorrect.item() >= incorr_size[0] // 2:
                     correct += out.item()
                 
             # get the index of the max log-probability
@@ -230,3 +236,17 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     torch.save(state, filename)
     if is_best:
         shutil.copyfile(filename, 'model_best.pth.tar')
+
+def select_items_except(idxs, pred):
+    out = pred.clone()
+    shift = 0
+
+    for i in idxs:
+        out = torch.cat([out[:(i - shift)], out[(i - shift)+1:]])
+        shift += 1
+
+    return out
+
+
+
+
