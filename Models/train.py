@@ -32,17 +32,16 @@ def train(args, model, device, checkpoint):
 
     print("\nImages resized to %d x %d" % (args.resize, args.resize))
 
-    # train_dataset = CocoDataset.CocoDataset(args.train_dir, args.train_annFile, transform=data_transform)
+    train_dataset = CocoDataset.CocoDataset(args.train_dir, args.train_annFile, transform=data_transform)
     val_dataset = CocoDataset.CocoDataset(args.val_dir, args.val_annFile, transform=data_transform)
 
-    # Concatenate each dataset to create a joined dataset
-    # train_loader = torch.utils.data.DataLoader(
-    # train_dataset, 
-    # batch_size= args.batch_size, 
-    # shuffle= True, 
-    # num_workers= args.num_processes,
-    # pin_memory= True
-    # )
+    train_loader = torch.utils.data.DataLoader(
+    train_dataset, 
+    batch_size= args.batch_size, 
+    shuffle= True, 
+    num_workers= args.num_processes,
+    pin_memory= True
+    )
 
     val_loader = torch.utils.data.DataLoader(
     val_dataset,
@@ -95,7 +94,7 @@ def train(args, model, device, checkpoint):
 
     # train and validate the model accordingly
     for epoch in range(args.start_epoch, args.epochs + 1):
-        # train_epoch(epoch, args, model, optimizer, criterion, train_loader, device)
+        train_epoch(epoch, args, model, optimizer, criterion, train_loader, device)
         test_loss, accuracy = test_epoch(model, val_loader, device, criterion)
 
         if args.plateau == 'loss':
