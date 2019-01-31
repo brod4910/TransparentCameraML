@@ -190,17 +190,18 @@ def test_epoch(model, val_loader, device, criterion):
             output = model(inputs)
             # sum up batch loss
             preds = F.binary_cross_entropy_with_logits(output, labels, reduction='none')
+            test_loss += F.binary_cross_entropy_with_logits(output, labels, reduction='mean').item()
 
             # get correctness of predictions
             for i, (pred, idxs) in enumerate(zip(preds, label_idxs)):
                 torch_idxs = torch.tensor(idxs).type(torch.LongTensor).to(device)
                 out = torch.index_select(pred, 0, torch_idxs)
-                out = out.ge(.7).sum()
+                out = out.ge(.8).sum()
 
                 # select all incorrect items and check for 
                 # percentage of incorrectness
                 incorrect_preds = select_items_except(idxs, pred)
-                incorrect_sum = incorrect_preds.le(.4).sum()
+                incorrect_sum = incorrect_preds.le(.3).sum()
 
                 correct += out.item()
                 incorrect += incorrect_sum.item()
