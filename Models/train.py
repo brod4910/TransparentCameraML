@@ -12,6 +12,9 @@ import numpy as np
 from . import CocoDataset
 from . import normalize
 
+correct_labels = 11536
+incorrect_labels = 48464
+
 '''
     The main train function that combines model setup, training, testing, and extra rigor evaluation
 
@@ -29,17 +32,17 @@ def train(args, model, device, checkpoint):
 
     print("\nImages resized to %d x %d" % (args.resize, args.resize))
 
-    train_dataset = CocoDataset.CocoDataset(args.train_dir, args.train_annFile, transform=data_transform)
+    # train_dataset = CocoDataset.CocoDataset(args.train_dir, args.train_annFile, transform=data_transform)
     val_dataset = CocoDataset.CocoDataset(args.val_dir, args.val_annFile, transform=data_transform)
 
     # Concatenate each dataset to create a joined dataset
-    train_loader = torch.utils.data.DataLoader(
-    train_dataset, 
-    batch_size= args.batch_size, 
-    shuffle= True, 
-    num_workers= args.num_processes,
-    pin_memory= True
-    )
+    # train_loader = torch.utils.data.DataLoader(
+    # train_dataset, 
+    # batch_size= args.batch_size, 
+    # shuffle= True, 
+    # num_workers= args.num_processes,
+    # pin_memory= True
+    # )
 
     val_loader = torch.utils.data.DataLoader(
     val_dataset,
@@ -92,7 +95,7 @@ def train(args, model, device, checkpoint):
 
     # train and validate the model accordingly
     for epoch in range(args.start_epoch, args.epochs + 1):
-        train_epoch(epoch, args, model, optimizer, criterion, train_loader, device)
+        # train_epoch(epoch, args, model, optimizer, criterion, train_loader, device)
         test_loss, accuracy = test_epoch(model, val_loader, device, criterion)
 
         if args.plateau == 'loss':
@@ -175,6 +178,7 @@ def test_epoch(model, val_loader, device, criterion):
     test_loss = 0
     accuracy = 0
     correct = 0
+    incorrect = 0
 
     # validate the model over the test set and record no gradient history
     with torch.no_grad():
@@ -184,38 +188,23 @@ def test_epoch(model, val_loader, device, criterion):
 
             label_idxs = [[i for i, l in enumerate(label) if l == 1] for label in labels]
 
-            corr_size = []
-
-            for idxs in label_idxs:
-                size = len(idxs)//2
-                if size != 0:
-                    corr_size.append(size)
-                elif idxs and size == 0:
-                    corr_size.append(1)
-                else:
-                    corr_size.append(0)
-
             output = model(inputs)
             # sum up batch loss
             preds = F.binary_cross_entropy_with_logits(output, labels, reduction='none')
 
             # get correctness of predictions
-            for i, (pred, idxs, size) in enumerate(zip(preds, label_idxs, corr_size)):
-                torch_idxs = torch.tensor(idxs).to(device)
+            for i, (pred, idxs) in enumerate(zip(preds, label_idxs)):
+                torch_idxs = torch.tensor(idxs).type(torch.LongTensor).to(device)
                 out = torch.index_select(pred, 0, torch_idxs)
                 out = out.ge(.7).sum()
 
                 # select all incorrect items and check for 
                 # percentage of incorrectness
                 incorrect_preds = select_items_except(idxs, pred)
-                incorr_size = incorrect_preds.size()
-                incorrect_sum = incorrect_preds.le(.5).sum()
+                incorrect_sum = incorrect_preds.le(.4).sum()
 
-                # predictions must be greater than half of the correct labels
-                # and incorrectness must be less than half of incorrect labels
-                # 
-                if out.item() >= size and incorrect_sum.item() >= incorr_size[0] // 2:
-                    correct += out.item()
+                correct += out.item()
+                incorrect += incorrect_sum.item()
 
                 del torch_idxs
                 
@@ -224,10 +213,11 @@ def test_epoch(model, val_loader, device, criterion):
             del inputs, labels, output
 
     test_loss /= len(val_loader.dataset)
-    accuracy = 100. * correct / len(val_loader.dataset)
-    print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.1f}%)\n'
-          .format(test_loss, correct, len(val_loader.dataset),
-                  100. * correct / len(val_loader.dataset)))
+    correct_accuracy = 100. * correct / correct_labels
+    incorrect_accuracy = 100. * incorrect / incorrect_labels
+
+    print('\nTest set: Average loss: {:.4f}, Correctly Labeled Accuracy: {}/{} ({:.1f}%, Correct Incorrectly Labeled Accuracy: {}/{} ({:.1f}%)\n'
+          .format(test_loss, correct, correct_labels, correct_accuracy, incorrect, incorrect_labels, incorrect_accuracy))
 
     return test_loss, accuracy
 
@@ -244,6 +234,13 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     if is_best:
         shutil.copyfile(filename, 'model_best.pth.tar')
 
+'''
+    Selects all items to be selected except the indicies in idxs
+
+    params:
+        idxs: indices to be removed from pred
+        pred: the prediction tensor to remove the correct predicitons from
+'''
 def select_items_except(idxs, pred):
     out = pred.clone()
     shift = 0
