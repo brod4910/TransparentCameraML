@@ -208,8 +208,6 @@ def test_epoch(model, val_loader, device, criterion):
 
                 del torch_idxs
                 
-            # get the index of the max log-probability
-
             del inputs, labels, output
 
     test_loss /= len(val_loader.dataset)

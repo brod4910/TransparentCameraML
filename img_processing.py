@@ -33,8 +33,7 @@ def convert_png_to_jpg(direct, new_direct):
     for i, filename in enumerate(allfiles):
         if not filename.startswith('.'):
             im = Image.open(os.path.join(direct, filename))
-            rgb_im = im.convert('RGB')
-            rgb_im.save('{}.jpg'.format(os.path.join(new_direct, filename[:-4])))
+            rgb_im.save('{}.tiff'.format(os.path.join(new_direct, filename[:-4])))
 
 def main():
     convert_png_to_jpg('/scratch/kingspeak/serial/u0853593/train2017', '/scratch/kingspeak/serial/u0853593/train2017_jpg')

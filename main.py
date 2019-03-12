@@ -9,7 +9,7 @@ import Models.models as models
 from Models.train import train
 
 def CreateArgsParser():
-    parser = argparse.ArgumentParser(description='Lensless Camera Pytorch')
+    parser = argparse.ArgumentParser(description='Transparent Camera Pytorch')
 
     parser.add_argument('--batch-size', type=int, default=64, metavar='N',
                     help='input batch size for training (default: 64)')
@@ -71,9 +71,6 @@ def main():
     if args.architecture == 'deep':
         network = make_model.Model(make_model.make_layers(models.feature_layers[args.f_layers]), 
             make_model.make_classifier_layers(models.classifier_layers[args.c_layers]), checkpoint= True)
-    # elif args.architecture == 'wide':
-    #     network = make_wide_model.Wide_Model(make_wide_model.make_wide_layers(wide_models.feature_layers['1']), 
-    #         make_wide_model.make_classifier_layers(wide_models.classifier_layers['1.5']), device)
  
     if args.resume is not None:
         if os.path.isfile(args.resume):
@@ -82,7 +79,6 @@ def main():
             args.start_epoch = checkpoint['epoch'] + 1
             best_prec1 = checkpoint['best_prec1']
             network.load_state_dict(checkpoint['state_dict'])
-            # optimizer.load_state_dict(checkpoint['optimizer'])
             print("=> loaded checkpoint '{}' (epoch {})"
                   .format(args.resume, checkpoint['epoch']))
         else:

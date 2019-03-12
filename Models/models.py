@@ -8,7 +8,6 @@
 # Alpha Dropout : ['AD', probability]
 # Classifying layer: ['FC', in_features, num_classes]
 # Possible Activation Fns: 'ReLU', 'PReLU', 'SELU', 'LeakyReLU', 'None'->(Contains no Batch Norm for dimensionality reduction 1x1 kernels)
-# srun python main.py --batch-size 16 --epochs 50 --lr 0.001 --momentum .9 --log-interval 100 --root-dir ../ --train-input-file ../clipped_training_data --train-target-file ../clipped_training_targets --test-input-file ../clipped_test_data --test-target-file ../clipped_test_targets
 
 # The calculations below are constrained to stride of 1
 # padding of 2 for 3x3 dilated convolution of 2 for same input/output image size
@@ -31,12 +30,18 @@ feature_layers = {
     '2': [['C', 3, 16, (3,3), 1, 1, 1, 'ReLU'], ['C', 16, 24, (3,3), 1, 1, 1, 'ReLU'], ['C', 24, 36, (3,3), 1, 1, 1, 'ReLU'],
     ['M', (3,3), 3, 0], ['C', 36, 8, (1,1), 1, 1, 0, 'ReLU'], ['C', 8, 16, (3,3), 1, 1, 1, 'ReLU'], ['C', 16, 24, (3,3), 1, 1, 1, 'ReLU'], ['C', 24, 36, (3,3), 1, 1, 1, 'ReLU'],
     ['M', (5,5), 3, 0], ['C', 36, 8, (1,1), 1, 1, 0, 'ReLU'], ['C', 8, 16, (3,3), 1, 1, 1, 'ReLU'], ['C', 16, 24, (3,3), 1, 1, 1, 'ReLU'], ['C', 24, 36, (3,3), 1, 1, 1, 'ReLU'],
-    ['A', (11,11), 1, 0]],
+    ['A', (12,12), 1, 0]],
+
+    '3': [['C', 3, 36, (3,3), 1, 1, 1, 'ReLU'], ['C', 36, 64, (3,3), 1, 1, 1, 'ReLU'], ['C', 64, 92, (3,3), 1, 1, 1, 'ReLU'],
+    ['M', (3,3), 3, 0], ['C', 92, 24, (1,1), 1, 1, 0, 'ReLU'], ['C', 24, 36, (3,3), 1, 1, 1, 'ReLU'], ['C', 36, 64, (3,3), 1, 1, 1, 'ReLU'], ['C', 64, 92, (3,3), 1, 1, 1, 'ReLU'],
+    ['M', (5,5), 3, 0], ['C', 92, 24, (1,1), 1, 1, 0, 'ReLU'], ['C', 24, 36, (3,3), 1, 1, 1, 'ReLU'], ['C', 36, 64, (3,3), 1, 1, 1, 'ReLU'], ['C', 64, 92, (3,3), 1, 1, 1, 'ReLU'],
+    ['A', (12,12), 1, 0]],
 }
 
 classifier_layers = {
     '1': [['L', 36 * 15 * 15, 368, 'ReLU'], ['D', .5], ['FC', 368, 12]],
     '2': [['L', 36 * 1 * 1, 512, 'ReLU'], ['D', .2], ['FC', 512, 12]],
+    '3': [['L', 92 * 1 * 1, 512, 'ReLU'], ['D', .05], ['FC', 512, 12]],
 }
 
 
